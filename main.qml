@@ -42,6 +42,8 @@ ApplicationWindow {
             onClicked: {
                 if(editOverlay.visible){
                     editOverlay.visible = false
+                    editGroupsListView.model = []
+                    editGroupsListView.newGroups = []
                 }else{
                     editGroupsListView.model = UGMan.getAllGroups()
                     editGroupsListView.newGroups = groupsListView.model
@@ -51,35 +53,64 @@ ApplicationWindow {
         }
     }
     QQ14.SplitView{
-        anchors.fill: parent
+        anchors{
+            fill: parent
+        }
         orientation: Qt.Horizontal
-        ListView{
-            id: usersListView
+        Item {
             width: parent.width * 0.5
             height: parent.height
-            spacing: 5
-            highlight: highlight
-            highlightFollowsCurrentItem: true
-            focus: true
-            delegate: Label{
-                width: parent.width
-                height: 50
-                text: modelData.username
-                horizontalAlignment: Qt.AlignHCenter
-                verticalAlignment: Qt.AlignVCenter
-                MouseArea{
-                    anchors.fill: parent
-                    onClicked: {
-                        usersListView.currentIndex = index
-                        groupsListView.model = UGMan.getGroups(modelData.username)
+            ListView{
+                id: usersListView
+                enabled: !editOverlay.visible
+                width: parent.width * 0.5
+                boundsBehavior: Flickable.StopAtBounds
+                anchors{
+                    fill: parent
+                    topMargin: usersListView.currentItem.height * 0.3
+                    bottomMargin: usersListView.currentItem.height * 0.3
+                    leftMargin: usersListView.currentItem.height * 0.2
+                    rightMargin: usersListView.currentItem.height * 0.2
+                }
+                spacing: 5
+                highlight: highlight
+                highlightFollowsCurrentItem: true
+
+                focus: true
+                delegate: Label{
+                    height: toolBar.height
+                    text: modelData.username
+                    horizontalAlignment: Qt.AlignHCenter
+                    verticalAlignment: Qt.AlignVCenter
+                    anchors{
+                        left: parent.left
+                        right: parent.right
+                        margins: height/5
                     }
+                    MouseArea{
+                        anchors.fill: parent
+                        onClicked: {
+                            usersListView.currentIndex = index
+                        }
+                    }
+                }
+                onCurrentIndexChanged: {
+                    groupsListView.model = UGMan.getGroups(usersListView.model[usersListView.currentIndex].username)
                 }
             }
         }
         Component {
             id: highlight
             Rectangle {
-                width: parent.width; height: usersListView.currentItem.height
+//                anchors.margins: height/5
+//                width: parent.width;
+                height: toolBar.height
+                anchors{
+                    left: parent.left
+                    right: parent.right
+//                    horizontalCenter: parent.horizontalCenter
+                    margins: height/5
+                }
                 color: "lightsteelblue"; radius: 5
                 y: usersListView.currentItem.y
                 Behavior on y {
@@ -91,48 +122,71 @@ ApplicationWindow {
             }
         }
 
-        ListView{
-            id: groupsListView
+        Item {
             width: parent.width * 0.5
             height: parent.height
-            spacing: 5
-            delegate: Item {
-                id: gDelegate
-                width: parent.width
-                height: checkBox.height
-                CheckBox{
-                    id: checkBox
-                    enabled: false
-                    checked: true
+            ListView{
+                id: groupsListView
+                anchors{
+                    fill: parent
+                    topMargin: usersListView.currentItem.height * 0.3
+                    bottomMargin: usersListView.currentItem.height * 0.3
+                    leftMargin: usersListView.currentItem.height * 0.2
+                    rightMargin: usersListView.currentItem.height * 0.2
                 }
-                Label{
-                    id: lbl
+//                width: parent.width * 0.5
+//                height: parent.height
+//                spacing: 5
+                boundsBehavior: Flickable.StopAtBounds
+                delegate: Item {
+                    id: gDelegate
                     width: parent.width
-                    height: parent.height
-                    text: modelData
-                    horizontalAlignment: Qt.AlignHCenter
-                    verticalAlignment: Qt.AlignVCenter
+                    height: checkBox.height
+                    anchors.margins: height/5
+                    CheckBox{
+                        id: checkBox
+                        enabled: false
+                        checked: true
+                    }
+                    Label{
+                        id: lbl
+                        width: parent.width
+                        height: parent.height
+                        text: modelData
+                        horizontalAlignment: Qt.AlignHCenter
+                        verticalAlignment: Qt.AlignVCenter
+                    }
                 }
-            }
 
+            }
         }
     }
 
     Rectangle{
         id: editOverlay
-        anchors.fill: parent
+        width: parent.width * 0.5
+        height: parent.height
+        anchors.right: parent.right
         visible: false
         ListView{
             id: editGroupsListView
             property var newGroups: []
-            anchors.fill: parent
             spacing: 5
+            boundsBehavior: Flickable.StopAtBounds
+            anchors{
+                fill: parent
+                topMargin: usersListView.currentItem.height * 0.3
+                bottomMargin: usersListView.currentItem.height * 0.3
+                leftMargin: usersListView.currentItem.height * 0.2
+                rightMargin: usersListView.currentItem.height * 0.2
+            }
             delegate: Item {
                 id: geDelegate
                 width: parent.width
-                height: geCheckBox.height
+                height: toolBar.height
                 CheckBox{
                     id: geCheckBox
+                    height: parent.height
                     enabled: modelData !== usersListView.model[usersListView.currentIndex].username
                     checked: editGroupsListView.isInUserG(modelData)
                     onClicked: {
