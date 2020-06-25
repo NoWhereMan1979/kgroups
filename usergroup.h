@@ -25,9 +25,9 @@ public:
     QString whoAmI();
     int getUID(QString userName);
     Q_INVOKABLE QJsonArray getUsers();
-    Q_INVOKABLE QStringList getGroups(QString username);
-    Q_INVOKABLE QStringList getAllGroups();
-    Q_INVOKABLE int updateUserGroups(QString user, QStringList groups);
+    Q_INVOKABLE QJsonArray getGroups(QString username);
+    Q_INVOKABLE QJsonArray getAllGroups(QString user);
+    Q_INVOKABLE QString updateUserGroups(QString user, QJsonArray groups);
 
 signals:
 

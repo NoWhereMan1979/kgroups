@@ -1,6 +1,7 @@
 import QtQuick 2.12
 import QtQuick.Controls 2.5
 import QtQuick.Controls 1.4 as QQ14
+import QtQuick.Layouts 1.3
 import QtQuick.Window 2.12
 
 ApplicationWindow {
@@ -17,6 +18,8 @@ ApplicationWindow {
             text: "::"
             font.pixelSize: Qt.application.font.pixelSize * 1.6
             onClicked: {
+                msgPopup.msgText = "Whoooooooooo!"
+                msgPopup.open()
             }
         }
         ToolButton {
@@ -26,10 +29,10 @@ ApplicationWindow {
             text: "Set"
             font.pixelSize: Qt.application.font.pixelSize * 1.6
             onClicked: {
+                var i = usersListView.currentIndex
                 editGroupsListView.setGroups()
-                editGroupsListView.model = UGMan.getAllGroups()
-                editGroupsListView.newGroups = groupsListView.model
                 usersListView.model = UGMan.getUsers()
+                usersListView.currentIndex = i
                 groupsListView.model = UGMan.getGroups(usersListView.model[usersListView.currentIndex].username)
                 editOverlay.visible = false
             }
@@ -42,20 +45,15 @@ ApplicationWindow {
             onClicked: {
                 if(editOverlay.visible){
                     editOverlay.visible = false
-                    editGroupsListView.model = []
-                    editGroupsListView.newGroups = []
                 }else{
-                    editGroupsListView.model = UGMan.getAllGroups()
-                    editGroupsListView.newGroups = groupsListView.model
+                    editGroupsListView.model = UGMan.getAllGroups(usersListView.model[usersListView.currentIndex].username)
                     editOverlay.visible = true
                 }
             }
         }
     }
     QQ14.SplitView{
-        anchors{
-            fill: parent
-        }
+        anchors.fill: parent
         orientation: Qt.Horizontal
         Item {
             width: parent.width * 0.5
@@ -75,7 +73,6 @@ ApplicationWindow {
                 spacing: 5
                 highlight: highlight
                 highlightFollowsCurrentItem: true
-
                 focus: true
                 delegate: Label{
                     height: toolBar.height
@@ -102,13 +99,10 @@ ApplicationWindow {
         Component {
             id: highlight
             Rectangle {
-//                anchors.margins: height/5
-//                width: parent.width;
                 height: toolBar.height
                 anchors{
                     left: parent.left
                     right: parent.right
-//                    horizontalCenter: parent.horizontalCenter
                     margins: height/5
                 }
                 color: "lightsteelblue"; radius: 5
@@ -134,9 +128,6 @@ ApplicationWindow {
                     leftMargin: usersListView.currentItem.height * 0.2
                     rightMargin: usersListView.currentItem.height * 0.2
                 }
-//                width: parent.width * 0.5
-//                height: parent.height
-//                spacing: 5
                 boundsBehavior: Flickable.StopAtBounds
                 delegate: Item {
                     id: gDelegate
@@ -146,13 +137,13 @@ ApplicationWindow {
                     CheckBox{
                         id: checkBox
                         enabled: false
-                        checked: true
+                        checked: modelData.checked
                     }
                     Label{
                         id: lbl
                         width: parent.width
                         height: parent.height
-                        text: modelData
+                        text: modelData.name
                         horizontalAlignment: Qt.AlignHCenter
                         verticalAlignment: Qt.AlignVCenter
                     }
@@ -170,7 +161,6 @@ ApplicationWindow {
         visible: false
         ListView{
             id: editGroupsListView
-            property var newGroups: []
             spacing: 5
             boundsBehavior: Flickable.StopAtBounds
             anchors{
@@ -188,48 +178,33 @@ ApplicationWindow {
                     id: geCheckBox
                     height: parent.height
                     enabled: modelData !== usersListView.model[usersListView.currentIndex].username
-                    checked: editGroupsListView.isInUserG(modelData)
-                    onClicked: {
-                        editGroupsListView.sync(modelData, !checked)
-                    }
+                    checked: modelData.checked
+                    onClicked: editGroupsListView.sync(index, checked)
                 }
                 Label{
                     id: geLbl
                     width: parent.width
                     height: parent.height
-                    text: modelData
+                    text: modelData.name
                     horizontalAlignment: Qt.AlignHCenter
                     verticalAlignment: Qt.AlignVCenter
                 }
             }
-            function sync(gName, remove){
-                var found = false
-                for(var k in newGroups){
-                    if(newGroups[k] == gName){
-                        found = true
-                        if(remove){
-                            newGroups.splice(k,1)
-                        }
-                    }
-                }
-                if(!found && !remove){
-                    newGroups.push(gName)
-                }
-            }
 
-            function isInUserG(gName){
-                var modl = groupsListView.model
-                for(var ug in modl){
-                    if (modl[ug] == gName){
-                        return true
-                    }
-                }
-                return false
+            function sync(index, check){
+                var newM = editGroupsListView.model
+                newM[index].checked = check
+                editGroupsListView.model = newM
+                editGroupsListView.positionViewAtIndex(index, ListView.Center)
             }
 
             function setGroups(){
-                console.log(editGroupsListView.newGroups)
-                UGMan.updateUserGroups(usersListView.model[usersListView.currentIndex].username, newGroups)
+                console.log(editGroupsListView.model)
+                var res = UGMan.updateUserGroups(usersListView.model[usersListView.currentIndex].username, editGroupsListView.model)
+                if(res != ""){
+                    msgPopup.msgText = res
+                    msgPopup.open()
+                }
             }
         }
     }
@@ -238,7 +213,48 @@ ApplicationWindow {
         usersListView.model = UGMan.getUsers()
     }
 
+    Popup{
+        id: msgPopup
+        property alias msgText: msgLbl.text
+        width: parent.width * 0.95
+        height: contentsCol.height + padding * 2 + closBtn.height
+        x: (parent.width - width)/2
+        y: (parent.height - height)/2
+        background: Rectangle{
+            radius: 5
+            border.color: "lightsteelblue"
+        }
+        ColumnLayout{
+            id: contentsCol
+            width: parent.width * 0.8
+            anchors{
+                horizontalCenter: parent.horizontalCenter
+                top: parent.top
+                topMargin: closBtn.height
+            }
+            spacing: 10
+            Label{
+                id: emptyLbl
+                text: " "
+                visible: false
+            }
+            Label{
+                id: msgLbl
+                width: parent.width
+                wrapMode: Text.Wrap
+            }
 
+            Button{
+                id: closBtn
+                text: qsTr("Close")
+                font.pointSize: msgPopup.gfps
+                Layout.alignment: Qt.AlignCenter
+                Layout.preferredWidth: implicitWidth * 2
+                onClicked: msgPopup.close()
+            }
+        }
+        onClosed: msgLbl.text = ""
+    }
 
 
 }

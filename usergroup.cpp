@@ -103,7 +103,7 @@ QJsonArray UserGroup::getUsers()
     return  jArr;
 }
 
-QStringList UserGroup::getGroups(QString username)
+QJsonArray UserGroup::getGroups(QString username)
 {qDebug()<< username;
     QProcess process(this);
     QStringList args;
@@ -116,10 +116,18 @@ QStringList UserGroup::getGroups(QString username)
     QStringList grs = str.split(" ");
     grs.removeAt(0);
     grs.removeAt(0);
-    return  grs;
+    QJsonArray jArr;
+    for (auto &&g: grs)
+    {
+        QJsonObject jObj;
+        jObj["name"] = g;
+        jObj["checked"] = true;
+        jArr.append(jObj);
+    }
+    return  jArr;
 }
 
-QStringList UserGroup::getAllGroups()
+QJsonArray UserGroup::getAllGroups(QString user)
 {
     QProcess process(this);
     process.setProgram("cat");
@@ -129,44 +137,67 @@ QStringList UserGroup::getAllGroups()
     while (process.state() != QProcess::NotRunning)
         QCoreApplication::processEvents();
     QString str = QString(process.readAll()).trimmed();
-    QStringList list = str.split("\n");
-    for (int i = 0; i < list.length(); i++){
-        list[i] = list[i].split(":").first();
+    QStringList grs = str.split("\n");
+    for (int i = 0; i < grs.length(); i++){
+        grs[i] = grs[i].split(":").first();
     }
-    return list;
+    QJsonArray userGs = getGroups(user);
+    QJsonArray jArr;
+    for (QString g: grs)
+    {
+        QJsonObject jObj;
+        jObj["name"] = g;
+        jObj["checked"] = false;
+        for (QJsonValue ug: userGs)
+        {
+            if(ug.toObject()["name"].toString() == g)
+            {
+                jObj["checked"] = true;
+            }
+        }
+        jArr.append(jObj);
+    }
+    return  jArr;
 }
 
-int UserGroup::updateUserGroups(QString user, QStringList groups)
+QString UserGroup::updateUserGroups(QString user, QJsonArray groups)
 {
     qDebug() << "updateUserGroups() user, groups: " << user << groups;
     QProcess process(this);
     process.setProgram("pkexec");
     QStringList args = QStringList{"usermod", /*"-a",*/ "-G"};
-    QString grps = groups.join(",");
+    QStringList checkedGroups;
+    for(QJsonValue gv: groups)
+    {
+        if(gv.toObject()["checked"].toBool())
+        {
+            checkedGroups.append(gv.toObject()["name"].toString());
+        }
+    }
+    QString grps = checkedGroups.join(",");
     args.append(grps);
     args.append(user.toUtf8());
     qDebug() << "args" << args;
     process.setArguments(args);
     process.start();
-    bool success = process.waitForStarted();
-    if (!success)
-    {
-//            qDebug("waitForStarted() error: %s", process.errorString().toUtf8().constData());
-        qDebug() << "waitForStarted() error: " << QString::fromUtf8(process.readAllStandardError().constData());
-        return -1;
-    }
+    process.waitForStarted();
+//    bool success =
+//    if (!success)
+//    {
+////            qDebug("waitForStarted() error: %s", process.errorString().toUtf8().constData());
+//        qDebug() << "waitForStarted() error: " << QString::fromUtf8(process.readAllStandardError().constData());
+//        return -1;
+//    }
     while (process.state() != QProcess::NotRunning)
         QCoreApplication::processEvents();
     QString str = QString(process.readAll()).trimmed();
     qDebug() << "updateUserGroups: " << str;
-    /*success = */process.waitForFinished();
+    process.waitForFinished();
     if (process.exitStatus() != 0)
     {
         qDebug("exitStatus errorStr: %s", process.errorString().toUtf8().constData());
         qDebug() << "process AllStandardError: " << QString::fromUtf8(process.readAllStandardError().constData());
-        return -2;
+        return QString::fromUtf8(process.readAllStandardError().constData());
     }
-
-    //    QStringList list = str.split("\n");
-    return 0;
+    return process.readAllStandardOutput().constData();
 }
